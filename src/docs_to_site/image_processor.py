@@ -14,6 +14,7 @@ from pptx.shapes.picture import Picture
 from PIL import Image
 from wand.image import Image as WandImage
 from wand.exceptions import WandError
+from wand.color import Color
 
 from .utils import sanitize_filename, IMAGE_FORMATS
 
@@ -45,16 +46,18 @@ def normalize_image_name(name: str) -> str:
     # Convert to lowercase for case-insensitive matching
     return base.lower()
 
-def convert_wmf_to_png(image_bytes: bytes, output_path: Path) -> Optional[Path]:
+def convert_wmf_to_png(image_bytes: bytes, output_path: Path, is_icon: bool = True) -> Optional[Path]:
     """
-    Convert WMF image to PNG format using Wand (ImageMagick).
+    Convert WMF image to PNG or SVG format using ImageMagick.
+    Attempts to preserve vector content by using direct ImageMagick commands.
     
     Args:
         image_bytes: The WMF image data
-        output_path: The desired output path for the PNG file
+        output_path: The desired output path for the converted file
+        is_icon: Whether the WMF is being used as an icon (affects size/density settings)
         
     Returns:
-        Path to the converted PNG file or None if conversion fails
+        Path to the converted file or None if conversion fails
     """
     # Check ImageMagick availability first
     is_available, message = check_imagemagick()
@@ -63,19 +66,77 @@ def convert_wmf_to_png(image_bytes: bytes, output_path: Path) -> Optional[Path]:
         return None
 
     try:
-        # Convert WMF to PNG using Wand
-        png_path = output_path.with_suffix('.png')
+        # Create a temporary WMF file
+        temp_wmf = output_path.with_suffix('.tmp.wmf')
+        temp_wmf.write_bytes(image_bytes)
         
-        with WandImage(blob=image_bytes, format='wmf') as img:
-            # Set resolution to ensure good quality
-            img.resolution = (300, 300)
-            # Convert to PNG
-            img.format = 'png'
-            img.save(filename=str(png_path))
-            logger.info(f"Successfully converted WMF to PNG: {png_path}")
-            return png_path
+        try:
+            # Try vector conversion first using direct ImageMagick command
+            svg_path = output_path.with_suffix('.svg')
+            
+            # Adjust settings based on whether it's an icon
+            density = '72' if is_icon else '300'
+            size_param = ['-resize', '64x64>'] if is_icon else []  # Resize if larger than 64x64
+            
+            convert_cmd = [
+                'magick',
+                'convert',
+                '-density', density,
+                '-background', 'transparent',
+                '-define', 'wmf:vector',
+                '-define', 'wmf:preserve-vector',
+                '-define', 'svg:include-xml',
+                str(temp_wmf),
+            ]
+            
+            # Add size parameter for icons
+            if size_param:
+                convert_cmd.extend(size_param)
+                
+            convert_cmd.append('SVG:' + str(svg_path))
+            
+            result = subprocess.run(convert_cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                # Verify the SVG is not just a base64 wrapper
+                svg_content = svg_path.read_text()
+                if 'base64' not in svg_content and ('<path' in svg_content or '<polygon' in svg_content or '<rect' in svg_content):
+                    logger.info(f"Successfully converted WMF to SVG: {svg_path}")
+                    return svg_path
+                else:
+                    logger.warning("SVG conversion resulted in base64 encoding, falling back to PNG")
+                    svg_path.unlink(missing_ok=True)
+            
+            # Fallback to PNG conversion
+            png_path = output_path.with_suffix('.png')
+            convert_cmd = [
+                'magick',
+                'convert',
+                '-density', density,
+                '-background', 'white',
+                '-alpha', 'remove',
+                str(temp_wmf),
+            ]
+            
+            # Add size parameter for icons
+            if size_param:
+                convert_cmd.extend(size_param)
+                
+            convert_cmd.append(str(png_path))
+            
+            result = subprocess.run(convert_cmd, capture_output=True, text=True)
+            if result.returncode == 0:
+                logger.info(f"Successfully converted WMF to PNG: {png_path}")
+                return png_path
+            else:
+                logger.warning(f"PNG conversion failed: {result.stderr}")
+                return None
+                
+        finally:
+            # Clean up temporary file
+            temp_wmf.unlink(missing_ok=True)
+                
     except Exception as e:
-        logger.warning(f"Failed to convert WMF to PNG using Wand: {str(e)}")
+        logger.warning(f"Failed to convert WMF: {str(e)}")
         return None
 
 def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
@@ -118,7 +179,9 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
                         # Handle WMF files
                         if image_ext.lower() == '.wmf':
                             if is_available:
-                                png_path = convert_wmf_to_png(image_bytes, image_path)
+                                # Detect if it's being used as an icon based on size or placement
+                                is_icon = True  # We're assuming all WMFs are icons as per requirement
+                                png_path = convert_wmf_to_png(image_bytes, image_path, is_icon=is_icon)
                                 if png_path:
                                     image_name = png_path.name
                                     image_path = png_path
