@@ -1,3 +1,5 @@
+![GitHub branch status](https://img.shields.io/github/checks-status/Hankanman/Docs-to-Site/main)
+
 # Markdown Document Converter
 
 A Python-based tool that converts various document formats into a hosted MkDocs site using GitHub Pages. The tool utilizes the markitdown library for document conversion and MkDocs for static site generation.
