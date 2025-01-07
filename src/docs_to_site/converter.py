@@ -7,6 +7,8 @@ import re
 import shutil
 from pathlib import Path
 from typing import List, Optional, Set, Tuple, Dict, Any
+from unicodedata import normalize
+from slugify import slugify
 
 import yaml
 from markitdown import MarkItDown, UnsupportedFormatException, FileConversionException
@@ -37,6 +39,77 @@ SUPPORTED_FORMATS = {
 
 # Image formats that should be copied to the output
 IMAGE_FORMATS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'}
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename to be safe for all operating systems.
+    
+    Args:
+        filename: The filename to sanitize
+    
+    Returns:
+        A sanitized filename
+    """
+    # Get the stem and extension separately
+    path = Path(filename)
+    # Handle paths with multiple segments
+    if len(path.parts) > 1:
+        # Join all parts except the last with hyphens
+        stem = '-'.join(part for part in path.parts[:-1])
+        stem += f"-{path.parts[-1]}"
+    else:
+        stem = path.stem
+    suffix = path.suffix
+    
+    # Slugify the stem only
+    clean_stem = slugify(stem,
+                        lowercase=False,
+                        separator='-',
+                        regex_pattern=r'[^-a-zA-Z0-9.]+',  # Allow dots
+                        replacements=[
+                            ('_', '-'),    # Convert underscores to hyphens
+                            ('/', '-'),    # Convert slashes to hyphens
+                            ('\\', '-'),   # Convert backslashes to hyphens
+                        ])
+    
+    # Recombine with the extension
+    return f"{clean_stem}{suffix}"
+
+
+def sanitize_title(title: str) -> str:
+    """
+    Sanitize a title for use in MkDocs navigation.
+    
+    Args:
+        title: The title to sanitize
+    
+    Returns:
+        A sanitized title
+    """
+    # First handle special characters and spacing
+    replacements = {
+        '–': '-',  # en dash
+        '—': '-',  # em dash
+        '™': '',   # trademark
+        '®': '',   # registered trademark
+        '©': '',   # copyright
+        '[': '(',  # brackets to parentheses
+        ']': ')',
+    }
+    
+    # Apply replacements
+    clean_title = title
+    for old, new in replacements.items():
+        clean_title = clean_title.replace(old, new)
+    
+    # Remove other special characters but keep unicode letters/numbers
+    clean_title = ''.join(c for c in clean_title if c.isalnum() or c.isspace() or c in '()-.,')
+    
+    # Normalize spaces
+    clean_title = ' '.join(clean_title.split())
+    
+    return clean_title.strip()
 
 
 class DocumentConverter:
@@ -206,9 +279,13 @@ class DocumentConverter:
             OSError: If there are file system related errors
         """
         relative_path = document.relative_to(self.input_dir)
-        output_path = self.docs_dir / relative_path.with_suffix('.md')
+        # Sanitize the filename part while keeping the directory structure
+        sanitized_name = sanitize_filename(relative_path.stem) + '.md'
+        sanitized_path = relative_path.parent / sanitized_name
+        output_path = self.docs_dir / sanitized_path
+        
         output_path.parent.mkdir(parents=True, exist_ok=True)
-
+        
         logger.info(f"Converting {document} to {output_path}")
         try:
             # First check if we can access the file
@@ -216,9 +293,9 @@ class DocumentConverter:
                 f.read(1)
             
             # Create document-specific images directory
-            doc_images_dir = self.images_dir / document.stem
+            doc_images_dir = self.images_dir / sanitize_filename(document.stem)
             doc_images_dir.mkdir(parents=True, exist_ok=True)
-
+            
             # Extract images if it's a PowerPoint file
             image_map = None
             if document.suffix.lower() in {'.ppt', '.pptx'}:
@@ -232,15 +309,17 @@ class DocumentConverter:
             if not title:
                 # Use the filename without extension as title if no title is found
                 title = document.stem
+            title = sanitize_title(title)
+            
             content = result.text_content
-
+            
             # If we have a title, add it as a header
             markdown_content = f"# {title}\n\n" if title else ""
             markdown_content += content
-
+            
             # Format the content
             markdown_content = self.format_markdown(markdown_content, document, image_map)
-
+            
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)
             
@@ -274,6 +353,8 @@ class DocumentConverter:
         for file_path, title in sorted_files:
             # Extract prefix from title
             prefix = title.split(' - ')[0] if ' - ' in title else 'Other'
+            # Sanitize the prefix
+            prefix = sanitize_title(prefix)
             if prefix not in groups:
                 groups[prefix] = []
             groups[prefix].append((file_path, title))
@@ -283,13 +364,13 @@ class DocumentConverter:
             if len(files) > 1:
                 # Create a group for multiple files with the same prefix
                 nav_structure[prefix] = {
-                    title.replace(prefix + ' - ', ''): str(file_path)
+                    sanitize_title(title.replace(prefix + ' - ', '')): str(file_path)
                     for file_path, title in files
                 }
             else:
                 # Single file goes directly in the root
                 file_path, title = files[0]
-                nav_structure[title] = str(file_path)
+                nav_structure[sanitize_title(title)] = str(file_path)
 
         # Convert the nested dictionary to MkDocs nav format
         def dict_to_nav(d: Dict[str, Any]) -> List[Any]:
@@ -309,9 +390,12 @@ class DocumentConverter:
 
     def generate_mkdocs_config(self) -> None:
         """Generate the MkDocs configuration file with navigation structure."""
+        # Ensure output directory exists
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
         if self.config:
             # Use custom config if provided
-            with open(self.config, 'r') as f:
+            with open(self.config, 'r', encoding='utf-8') as f:
                 config_data = yaml.safe_load(f)
         else:
             # Generate default config
@@ -350,8 +434,15 @@ class DocumentConverter:
         if self.converted_files:
             config_data['nav'] = self._build_nav_structure()
 
-        with open(self.mkdocs_config, 'w') as f:
-            yaml.dump(config_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        with open(self.mkdocs_config, 'w', encoding='utf-8') as f:
+            yaml.dump(
+                config_data, 
+                f, 
+                default_flow_style=False, 
+                sort_keys=False, 
+                allow_unicode=True,
+                encoding='utf-8'
+            )
 
     def convert(self) -> None:
         """Convert all documents and set up the MkDocs site."""

@@ -20,37 +20,29 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
-.venv/
-env/
-ENV/
-.env
+# Coverage
+.coverage
+coverage.xml
+junit.xml
+htmlcov/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-.project
-.pydevproject
-.settings/
 
-# Testing
-.coverage
-htmlcov/
-.tox/
-.pytest_cache/
-nosetests.xml
-coverage.xml
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
 
-# Documentation
-docs/_build/
+# MkDocs
 site/
 
-# Misc
-.DS_Store
-Thumbs.db
-
-# Markdown Converter
+# Project specific
 input/
 output/
+junit.xml

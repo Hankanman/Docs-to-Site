@@ -1,7 +1,7 @@
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Hankanman/Docs-to-Site/test.yml)
 [![codecov](https://codecov.io/github/Hankanman/Docs-to-Site/graph/badge.svg?token=8L0V5NJFLN)](https://codecov.io/github/Hankanman/Docs-to-Site)
 
-# Markdown Document Converter
+# Docs-to-Site
 
 A Python-based tool that converts various document formats into a hosted MkDocs site using GitHub Pages. The tool utilizes the markitdown library for document conversion and MkDocs for static site generation.
 
@@ -26,38 +26,49 @@ A Python-based tool that converts various document formats into a hosted MkDocs 
 
 ## Installation
 
-1. Clone the repository:
+### From PyPI (not yet available)
 ```bash
-git clone https://github.com/yourusername/markdown-converter.git
-cd markdown-converter
+pip install docs-to-site
 ```
 
-2. Create and activate a virtual environment:
+### From Source
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+# Clone the repository
+git clone https://github.com/yourusername/Docs-to-Site.git
+cd Docs-to-Site
 
-3. Install the package with development dependencies:
-```bash
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install in development mode with dev dependencies
 pip install -e ".[dev]"
+```
+
+### Dependencies Only
+```bash
+# Production dependencies
+pip install -r requirements.txt
+
+# Development dependencies
+pip install -r requirements-dev.txt
 ```
 
 ## Usage
 
 Basic conversion:
 ```bash
-markdown-converter convert /path/to/input/folder /path/to/output/folder
+Docs-to-Site convert /path/to/input/folder /path/to/output/folder
 ```
 
 With custom MkDocs configuration:
 ```bash
-markdown-converter convert /path/to/input/folder /path/to/output/folder --config /path/to/mkdocs.yml
+Docs-to-Site convert /path/to/input/folder /path/to/output/folder --config /path/to/mkdocs.yml
 ```
 
 For more detailed options:
 ```bash
-markdown-converter --help
+Docs-to-Site --help
 ```
 
 ### Output Structure

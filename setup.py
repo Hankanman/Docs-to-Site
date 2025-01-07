@@ -1,16 +1,18 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="markdown-converter",
+    name="docs-to-site",
     version="0.1.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
+    package_data={"": ["py.typed"]},
     install_requires=[
         "markitdown==0.0.1a3",
         "mkdocs>=1.4.0",
         "click>=8.0.0",
         "pyyaml>=6.0",
         "typing-extensions>=4.0.0",
+        "python-slugify>=8.0.0",
     ],
     extras_require={
         "dev": [
@@ -25,15 +27,15 @@ setup(
     python_requires=">=3.8",
     entry_points={
         "console_scripts": [
-            "markdown-converter=markdown_converter.cli:main",
+            "docs-to-site=docs_to_site.__main__:main",
         ],
     },
     author="Your Name",
     author_email="your.email@example.com",
-    description="A tool to convert various document formats to MkDocs-compatible Markdown",
+    description="A tool to convert various document formats into a hosted MkDocs site",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/markdown-converter",
+    url="https://github.com/yourusername/Docs-to-Site",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

@@ -1,7 +1,23 @@
-# Markdown Document Converter Project
+# Document to Site Project
 
 ## Project Brief
-A Python-based tool that converts various document formats into a hosted MkDocs site using GitHub Pages. The tool utilizes the markitdown library for document conversion and MkDocs for static site generation.
+A Python-based tool that converts various document formats into a hosted MkDocs site. The tool utilizes the markitdown library for document conversion and MkDocs for static site generation.
+
+## Structure
+Project Root/
+├── src/
+│   └── docs_to_site/
+│       ├── __init__.py
+│       ├── __main__.py
+|       ├── cli.py
+│       ├── converter.py
+│       └── ui.py
+├── tests/
+│   └── conftest.py
+│   └── test_converter.py
+├── setup.py
+├── pyproject.toml
+└── README.md
 
 ## Objectives
 1. Accept input folder containing various document formats

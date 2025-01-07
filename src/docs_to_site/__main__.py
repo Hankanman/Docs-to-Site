@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from .converter import DocumentConverter
+from .cli import main
 
 # Configure logging
 logging.basicConfig(
@@ -44,4 +45,4 @@ def convert(input_dir: Path, output_dir: Path, config: Path | None = None):
         sys.exit(1)
 
 if __name__ == '__main__':
-    cli() 
+    main() 
