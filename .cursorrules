@@ -1,0 +1,53 @@
+# Markdown Document Converter Project
+
+## Project Brief
+A Python-based tool that converts various document formats into a hosted MkDocs site using GitHub Pages. The tool utilizes the markitdown library for document conversion and MkDocs for static site generation.
+
+## Objectives
+1. Accept input folder containing various document formats
+2. Validate file formats against supported formats
+3. Convert documents to Markdown using markitdown
+4. Generate MkDocs site configuration
+5. Create organized output structure for GitHub Pages hosting
+
+## Best Practices
+1. Python Code Style:
+   - Follow PEP 8 style guide
+   - Use type hints for function parameters and returns
+   - Document functions and classes using docstrings
+   - Use meaningful variable and function names
+
+2. Project Structure:
+   - Modular design with separate concerns
+   - Clear package structure
+   - Configuration management
+   - Proper error handling and logging
+
+3. Testing:
+   - Unit tests for core functionality
+   - Integration tests for document conversion
+   - Test coverage reporting
+
+4. Documentation:
+   - Clear README with setup instructions
+   - API documentation
+   - Usage examples
+   - Contributing guidelines
+
+5. Dependencies:
+   - Pin dependency versions
+   - Use requirements.txt and setup.py
+   - Virtual environment management
+
+6. Error Handling:
+   - Graceful error handling for unsupported formats
+   - Clear error messages
+   - Proper logging of operations
+
+7. Security:
+   - Input validation
+   - Safe file handling
+   - No sensitive data in version control 
+
+8. Running Commands in the Terminal:
+   - when you are testing the app in the terminal always use the "input" folder as the input param and "output" folder as the output param
