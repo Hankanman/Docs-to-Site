@@ -25,6 +25,13 @@ def format_markdown(content: str, document: Path, image_map: Dict[str, str] | No
     Returns:
         Formatted Markdown content
     """
+    # Clean up vertical tabs and other problematic whitespace
+    content = content.replace('\v', ' ')  # Replace vertical tabs with newlines
+    content = re.sub(r'[\f\r]', '', content)  # Remove form feeds and carriage returns
+    
+    # Ensure tables have newlines after them (only after the last row)
+    content = re.sub(r'(\|[^\n]*\|)\s*\n(?!\|)', r'\1\n\n', content)
+    
     # Format slide markers
     content = re.sub(r'<!-- Slide number: (\d+) -->', r'\n---\n### Slide \1\n', content)
     
