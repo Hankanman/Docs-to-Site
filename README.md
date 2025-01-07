@@ -1,4 +1,5 @@
-![GitHub branch status](https://img.shields.io/github/checks-status/Hankanman/Docs-to-Site/main)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/Hankanman/Docs-to-Site/test.yml)
+[![codecov](https://codecov.io/github/Hankanman/Docs-to-Site/graph/badge.svg?token=8L0V5NJFLN)](https://codecov.io/github/Hankanman/Docs-to-Site)
 
 # Markdown Document Converter
 

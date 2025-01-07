@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+    <testsuite name="pytest" errors="0" failures="0" skipped="0" tests="4" time="3.009"
+        timestamp="2025-01-07T12:14:04.394083+00:00" hostname="Starrunner">
+        <testcase classname="tests.test_converter" name="test_supported_formats"
+            file="tests\test_converter.py" line="17" time="0.002" />
+        <testcase classname="tests.test_converter" name="test_converter_initialization"
+            file="tests\test_converter.py" line="40" time="0.009" />
+        <testcase classname="tests.test_converter" name="test_get_documents_empty_directory"
+            file="tests\test_converter.py" line="51" time="0.004" />
+        <testcase classname="tests.test_converter" name="test_get_documents_with_files"
+            file="tests\test_converter.py" line="60" time="0.005" />
+    </testsuite>
+</testsuites>
