@@ -146,7 +146,7 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
     Args:
         document: Path to the PowerPoint file
         doc_images_dir: Directory to save images in
-    
+        
     Returns:
         Dictionary mapping original image filenames to new image paths
     """
@@ -156,11 +156,13 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
         logger.warning(f"ImageMagick is not available: {message}. WMF images will be skipped.")
 
     image_map = {}
+    gif_map = {}  # Separate map for GIFs to ensure they take precedence
     try:
         prs = Presentation(document)
         image_count = 0
-
-        for slide in prs.slides:
+        
+        for slide_num, slide in enumerate(prs.slides, 1):
+            logger.debug(f"Processing slide {slide_num}")
             for shape in slide.shapes:
                 if isinstance(shape, Picture):
                     try:
@@ -170,12 +172,14 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
                         image_ext = image.ext.lower()
                         if not image_ext.startswith('.'):
                             image_ext = '.' + image_ext
+                            
+                        logger.debug(f"Found image in slide {slide_num}: format={image_ext}, shape_name={getattr(shape, 'name', 'N/A')}")
 
                         # Generate unique filename
                         image_count += 1
                         image_name = f"image_{image_count}{image_ext}"
                         image_path = doc_images_dir / image_name
-
+                        
                         # Handle WMF files
                         if image_ext.lower() == '.wmf':
                             if is_available:
@@ -197,27 +201,34 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
                                 f.write(image_bytes)
                         
                         logger.info(f"Extracted image: {image_path}")
-
+                        
                         # Map all possible variations of the image name
                         possible_names = []
                         if hasattr(shape, 'name'):
                             possible_names.append(shape.name)
+                            logger.debug(f"Adding shape name to mapping: {shape.name}")
                         if hasattr(shape, 'image_filename'):
                             possible_names.append(shape.image_filename)
+                            logger.debug(f"Adding image filename to mapping: {shape.image_filename}")
                         
-                        # Add common PowerPoint image naming patterns
+                        # Add mappings for all possible names
                         for name in possible_names:
                             # Store the full name
-                            image_map[name] = image_name
-                            # Store just the filename
-                            image_map[Path(name).name] = image_name
-                            # Store normalized name for matching
-                            norm_name = normalize_image_name(name)
-                            image_map[norm_name] = image_name
-                            # Add common extensions
-                            for ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                                image_map[f"{norm_name}{ext}"] = image_name
-                            
+                            if image_ext == '.gif':
+                                gif_map[name] = image_name
+                                gif_map[Path(name).name] = image_name
+                                gif_map[normalize_image_name(name)] = image_name
+                                gif_map[f"{normalize_image_name(name)}.gif"] = image_name
+                                gif_map[f"{Path(name).stem}.gif"] = image_name
+                            else:
+                                image_map[name] = image_name
+                                image_map[Path(name).name] = image_name
+                                image_map[normalize_image_name(name)] = image_name
+                                # Add common extensions for non-GIF images
+                                for ext in ['.jpg', '.jpeg', '.png']:
+                                    image_map[f"{normalize_image_name(name)}{ext}"] = image_name
+                                    image_map[f"{Path(name).stem}{ext}"] = image_name
+                        
                         logger.debug(f"Image mappings for {image_name}: {[k for k in image_map.keys() if image_map[k] == image_name]}")
 
                     except Exception as e:
@@ -226,9 +237,12 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
 
     except Exception as e:
         logger.warning(f"Failed to extract images from {document}: {str(e)}")
-
+    
+    # Merge GIF mappings into the main map, ensuring they take precedence
+    image_map.update(gif_map)
+    
     logger.info(f"Total images extracted: {image_count}")
-    logger.info(f"Image mappings: {image_map}")
+    logger.debug(f"Final image mappings: {image_map}")
     return image_map
 
 def copy_embedded_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:

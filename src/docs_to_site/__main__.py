@@ -27,7 +27,8 @@ def cli():
 @click.argument('output_dir', type=click.Path(file_okay=False, dir_okay=True, path_type=Path))
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False, path_type=Path),
               help='Path to custom MkDocs configuration file.')
-def convert(input_dir: Path, output_dir: Path, config: Path | None = None):
+@click.option('--verbose', '-v', is_flag=True, help='Enable verbose logging')
+def convert(input_dir: Path, output_dir: Path, config: Path | None = None, verbose: bool = False):
     """
     Convert documents from INPUT_DIR and generate a MkDocs site in OUTPUT_DIR.
     
@@ -37,6 +38,9 @@ def convert(input_dir: Path, output_dir: Path, config: Path | None = None):
     3. Generate a MkDocs site configuration
     4. Save everything in OUTPUT_DIR
     """
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        
     try:
         converter = DocumentConverter(input_dir, output_dir, config)
         converter.convert()

@@ -29,6 +29,9 @@ def format_markdown(content: str, document: Path, image_map: Dict[str, str] | No
     content = content.replace('\v', ' ')  # Replace vertical tabs with newlines
     content = re.sub(r'[\f\r]', '', content)  # Remove form feeds and carriage returns
     
+    # Fix newlines in image alt text
+    content = re.sub(r'!\[(.*?)\n+(.*?)\]\((.*?)\)', lambda m: f'![{m.group(1)} {m.group(2)}]({m.group(3)})', content)
+    
     # Ensure tables have newlines after them (only after the last row)
     content = re.sub(r'(\|[^\n]*\|)\s*\n(?!\|)', r'\1\n\n', content)
     
@@ -52,25 +55,68 @@ def format_markdown(content: str, document: Path, image_map: Dict[str, str] | No
                 content
             )
 
-        # Then try to match using normalized names
+        # Then try to match using normalized names and handle extensions
         for match in re.finditer(r'!\[(.*?)\]\((.*?)\)', content):
             alt_text = match.group(1)
             img_name = match.group(2)
-            norm_name = img_name.lower().replace(' ', '')
+            base_name = Path(img_name).stem
             
-            # Try to find a match using the normalized name
-            if norm_name in image_map:
-                new_path = image_map[norm_name]
-                logger.debug(f"Found normalized match: {norm_name} -> {new_path}")
-                content = content.replace(
-                    match.group(0),
-                    f'![{alt_text}](images/{sanitize_filename(document.stem)}/{new_path})'
-                )
-            else:
-                logger.warning(f"No mapping found for image: {img_name} (normalized: {norm_name})")
-                # Don't modify the path if we can't find a mapping
-                continue
-
+            # Try different variations of the image name
+            variations = [
+                img_name,  # Original name
+                Path(img_name).name,  # Just the filename
+                base_name,  # Just the name without extension
+                f"{base_name}.jpg",  # Common PowerPoint export extensions
+                f"{base_name}.jpeg",
+                f"{base_name}.png",
+                f"{base_name}.gif",
+            ]
+            
+            # Try to find a match using any of the variations
+            found_match = False
+            for var in variations:
+                # Try exact match
+                if var in image_map:
+                    new_path = image_map[var]
+                    logger.debug(f"Found variation match: {var} -> {new_path}")
+                    content = content.replace(
+                        match.group(0),
+                        f'![{alt_text}](images/{sanitize_filename(document.stem)}/{new_path})'
+                    )
+                    found_match = True
+                    break
+                
+                # Try normalized version
+                norm_var = var.lower().replace(' ', '').replace('_', '').replace('.', '')
+                if norm_var in image_map:
+                    new_path = image_map[norm_var]
+                    logger.debug(f"Found normalized match: {norm_var} -> {new_path}")
+                    content = content.replace(
+                        match.group(0),
+                        f'![{alt_text}](images/{sanitize_filename(document.stem)}/{new_path})'
+                    )
+                    found_match = True
+                    break
+                
+                # Try just the normalized base name
+                norm_base = base_name.lower().replace(' ', '').replace('_', '')
+                for mapped_name, mapped_path in image_map.items():
+                    mapped_base = Path(mapped_name).stem.lower().replace(' ', '').replace('_', '')
+                    if norm_base == mapped_base:
+                        logger.debug(f"Found base name match: {norm_base} -> {mapped_path}")
+                        content = content.replace(
+                            match.group(0),
+                            f'![{alt_text}](images/{sanitize_filename(document.stem)}/{mapped_path})'
+                        )
+                        found_match = True
+                        break
+                
+                if found_match:
+                    break
+            
+            if not found_match:
+                logger.warning(f"No mapping found for image: {img_name}")
+    
     # Fix any remaining absolute image paths
     content = re.sub(
         r'!\[(.*?)\]\(/images/',
