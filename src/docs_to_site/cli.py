@@ -3,7 +3,7 @@ Command-line interface for the Markdown Document Converter.
 """
 import click
 from pathlib import Path
-from .converter import DocumentConverter
+from . import convert as convert_docs
 from .ui import ConverterUI
 
 
@@ -19,12 +19,7 @@ def cli():
 @click.option('--config', '-c', type=click.Path(exists=True, dir_okay=False), help='Custom MkDocs configuration file')
 def convert(input_dir: str, output_dir: str, config: str | None = None):
     """Convert documents from INPUT_DIR to OUTPUT_DIR."""
-    converter = DocumentConverter(
-        Path(input_dir), 
-        Path(output_dir),
-        Path(config) if config else None
-    )
-    converter.convert()
+    convert_docs(input_dir, output_dir, config)
 
 
 @cli.command()
