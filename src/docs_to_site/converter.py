@@ -166,6 +166,15 @@ class DocumentConverter:
             logger.warning(f"No supported documents found. Supported formats are: {', '.join(sorted(SUPPORTED_FORMATS))}")
         return documents
 
+    def normalize_image_name(self, name: str) -> str:
+        """Normalize image name to handle variations in spacing and extensions."""
+        # Remove extension
+        base = str(Path(name).stem)
+        # Remove spaces
+        base = re.sub(r'\s+', '', base)
+        # Convert to lowercase for case-insensitive matching
+        return base.lower()
+
     def extract_pptx_images(self, document: Path, doc_images_dir: Path) -> Dict[str, str]:
         """
         Extract images from a PowerPoint file.
@@ -203,20 +212,37 @@ class DocumentConverter:
                                 f.write(image_bytes)
                             logger.info(f"Extracted image: {image_path}")
 
-                            # Store mapping for both the shape name and the filename
+                            # Map all possible variations of the image name
+                            possible_names = []
                             if hasattr(shape, 'name'):
-                                image_map[shape.name] = f"/images/{document.stem}/{image_name}"
+                                possible_names.append(shape.name)
                             if hasattr(shape, 'image_filename'):
-                                image_map[shape.image_filename] = f"/images/{document.stem}/{image_name}"
-                            # Also store with just the filename
-                            image_map[Path(shape.name).name] = f"/images/{document.stem}/{image_name}"
+                                possible_names.append(shape.image_filename)
+                            
+                            # Add common PowerPoint image naming patterns
+                            for name in possible_names:
+                                # Store the full name
+                                image_map[name] = image_name
+                                # Store just the filename
+                                image_map[Path(name).name] = image_name
+                                # Store normalized name for matching
+                                norm_name = self.normalize_image_name(name)
+                                image_map[norm_name] = image_name
+                                # Add common extensions
+                                for ext in ['.jpg', '.jpeg', '.png', '.gif', '.wmf']:
+                                    image_map[f"{norm_name}{ext}"] = image_name
+                                
+                            logger.debug(f"Image mappings for {image_name}: {[k for k in image_map.keys() if image_map[k] == image_name]}")
 
                         except Exception as e:
                             logger.warning(f"Failed to extract image from shape in {document}: {str(e)}")
+                            logger.debug(f"Shape details - name: {getattr(shape, 'name', 'N/A')}, type: {type(shape)}")
 
         except Exception as e:
             logger.warning(f"Failed to extract images from {document}: {str(e)}")
 
+        logger.info(f"Total images extracted: {image_count}")
+        logger.info(f"Image mappings: {image_map}")
         return image_map
 
     def format_markdown(self, content: str, document: Path, image_map: Optional[Dict[str, str]] = None) -> str:
@@ -236,32 +262,95 @@ class DocumentConverter:
         
         # Update image paths if we have a mapping
         if image_map:
+            # Log all image references in the markdown
+            image_refs = re.findall(r'!\[(.*?)\]\((.*?)\)', content)
+            logger.info(f"Found image references in markdown: {image_refs}")
+            
             # First try to match exact filenames
             for old_name, new_path in image_map.items():
+                pattern = rf'!\[(.*?)\]\({re.escape(old_name)}\)'
+                if re.search(pattern, content):
+                    logger.debug(f"Found match for {old_name} -> {new_path}")
                 content = re.sub(
-                    rf'!\[(.*?)\]\({re.escape(old_name)}\)',
-                    rf'![\1]({new_path})',
+                    pattern,
+                    rf'![\1](images/{sanitize_filename(document.stem)}/{new_path})',
                     content
                 )
 
-            # Then try to match Picture1.jpg, Picture2.jpg, etc.
-            picture_pattern = re.compile(r'!\[(.*?)\]\(Picture(\d+)\.(?:jpg|png|gif)\)')
-            matches = list(picture_pattern.finditer(content))
-            for i, match in enumerate(matches):
+            # Then try to match using normalized names
+            for match in re.finditer(r'!\[(.*?)\]\((.*?)\)', content):
                 alt_text = match.group(1)
-                image_num = int(match.group(2))
-                # Use the i-th image from our extracted images
-                if i < len(image_map):
-                    new_path = list(image_map.values())[i]
+                img_name = match.group(2)
+                norm_name = self.normalize_image_name(img_name)
+                
+                # Try to find a match using the normalized name
+                if norm_name in image_map:
+                    new_path = image_map[norm_name]
+                    logger.debug(f"Found normalized match: {norm_name} -> {new_path}")
                     content = content.replace(
                         match.group(0),
-                        f'![{alt_text}]({new_path})'
+                        f'![{alt_text}](images/{sanitize_filename(document.stem)}/{new_path})'
                     )
+                else:
+                    logger.warning(f"No mapping found for image: {img_name} (normalized: {norm_name})")
+                    # Don't modify the path if we can't find a mapping
+                    continue
+
+        # Fix any remaining absolute image paths
+        content = re.sub(
+            r'!\[(.*?)\]\(/images/',
+            r'![\1](images/',
+            content
+        )
+        
+        # Remove any duplicate image paths
+        content = re.sub(
+            r'images/[^/]+/images/[^/]+/',
+            lambda m: m.group(0).split('/', 1)[1],
+            content
+        )
+        
+        # Log any remaining unmatched image references
+        remaining_refs = re.findall(r'!\[(.*?)\]\((.*?)\)', content)
+        logger.info(f"Remaining image references after processing: {remaining_refs}")
         
         # Remove extra blank lines
         content = re.sub(r'\n{3,}', r'\n\n', content)
         
         return content
+
+    def copy_embedded_images(self, document: Path, doc_images_dir: Path) -> Dict[str, str]:
+        """
+        Copy embedded images from the document's directory to the output images directory.
+        
+        Args:
+            document: Path to the document being converted
+            doc_images_dir: Directory to copy images to
+            
+        Returns:
+            Dictionary mapping original image filenames to new paths
+        """
+        image_map = {}
+        # Look for images in the same directory as the document
+        doc_dir = document.parent
+        for img_ext in IMAGE_FORMATS:
+            for img_file in doc_dir.glob(f"*{img_ext}"):
+                try:
+                    # Generate a sanitized name for the image
+                    sanitized_name = sanitize_filename(img_file.name)
+                    new_path = doc_images_dir / sanitized_name
+                    
+                    # Copy the image
+                    shutil.copy2(img_file, new_path)
+                    logger.info(f"Copied embedded image: {img_file} -> {new_path}")
+                    
+                    # Store both the original name and sanitized name in the map
+                    image_map[img_file.name] = sanitized_name
+                    image_map[sanitized_name] = sanitized_name
+                except Exception as e:
+                    logger.warning(f"Failed to copy embedded image {img_file}: {str(e)}")
+        
+        return image_map
 
     def convert_document(self, document: Path) -> Path:
         """
@@ -292,14 +381,23 @@ class DocumentConverter:
             with open(document, 'rb') as f:
                 f.read(1)
             
-            # Create document-specific images directory
-            doc_images_dir = self.images_dir / sanitize_filename(document.stem)
+            # Create document-specific images directory in the same directory as the markdown file
+            doc_images_dir = output_path.parent / 'images' / sanitize_filename(document.stem)
             doc_images_dir.mkdir(parents=True, exist_ok=True)
             
+            # Initialize image map
+            image_map = {}
+            
+            # Copy any embedded images from the document's directory
+            embedded_images = self.copy_embedded_images(document, doc_images_dir)
+            if embedded_images:
+                image_map.update(embedded_images)
+            
             # Extract images if it's a PowerPoint file
-            image_map = None
             if document.suffix.lower() in {'.ppt', '.pptx'}:
-                image_map = self.extract_pptx_images(document, doc_images_dir)
+                pptx_images = self.extract_pptx_images(document, doc_images_dir)
+                if pptx_images:
+                    image_map.update(pptx_images)
             
             # Convert document to Markdown
             result = self.converter.convert_local(str(document))
