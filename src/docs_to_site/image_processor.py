@@ -4,15 +4,37 @@ Image processing functionality for document conversion.
 import logging
 import os
 import shutil
+import subprocess
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
+import io
 
 from pptx import Presentation
 from pptx.shapes.picture import Picture
+from PIL import Image
+from wand.image import Image as WandImage
+from wand.exceptions import WandError
 
 from .utils import sanitize_filename, IMAGE_FORMATS
 
 logger = logging.getLogger(__name__)
+
+def check_imagemagick() -> Tuple[bool, str]:
+    """
+    Check if ImageMagick is available in the system.
+    
+    Returns:
+        Tuple of (is_available: bool, message: str)
+    """
+    try:
+        with WandImage() as img:
+            return True, "ImageMagick is available"
+    except WandError as e:
+        if "delegate" in str(e).lower() and "wmf" in str(e).lower():
+            return False, "ImageMagick WMF delegate library is missing"
+        return False, f"ImageMagick is not properly installed: {str(e)}"
+    except Exception as e:
+        return False, f"Failed to check ImageMagick: {str(e)}"
 
 def normalize_image_name(name: str) -> str:
     """Normalize image name to handle variations in spacing and extensions."""
@@ -22,6 +44,39 @@ def normalize_image_name(name: str) -> str:
     base = base.replace(' ', '').replace('_', '').replace('.', '')
     # Convert to lowercase for case-insensitive matching
     return base.lower()
+
+def convert_wmf_to_png(image_bytes: bytes, output_path: Path) -> Optional[Path]:
+    """
+    Convert WMF image to PNG format using Wand (ImageMagick).
+    
+    Args:
+        image_bytes: The WMF image data
+        output_path: The desired output path for the PNG file
+        
+    Returns:
+        Path to the converted PNG file or None if conversion fails
+    """
+    # Check ImageMagick availability first
+    is_available, message = check_imagemagick()
+    if not is_available:
+        logger.warning(f"Cannot convert WMF: {message}")
+        return None
+
+    try:
+        # Convert WMF to PNG using Wand
+        png_path = output_path.with_suffix('.png')
+        
+        with WandImage(blob=image_bytes, format='wmf') as img:
+            # Set resolution to ensure good quality
+            img.resolution = (300, 300)
+            # Convert to PNG
+            img.format = 'png'
+            img.save(filename=str(png_path))
+            logger.info(f"Successfully converted WMF to PNG: {png_path}")
+            return png_path
+    except Exception as e:
+        logger.warning(f"Failed to convert WMF to PNG using Wand: {str(e)}")
+        return None
 
 def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
     """
@@ -34,6 +89,11 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
     Returns:
         Dictionary mapping original image filenames to new image paths
     """
+    # Check ImageMagick at the start
+    is_available, message = check_imagemagick()
+    if not is_available:
+        logger.warning(f"ImageMagick is not available: {message}. WMF images will be skipped.")
+
     image_map = {}
     try:
         prs = Presentation(document)
@@ -55,9 +115,24 @@ def extract_pptx_images(document: Path, doc_images_dir: Path) -> Dict[str, str]:
                         image_name = f"image_{image_count}{image_ext}"
                         image_path = doc_images_dir / image_name
 
-                        # Save image
-                        with open(image_path, 'wb') as f:
-                            f.write(image_bytes)
+                        # Handle WMF files
+                        if image_ext.lower() == '.wmf':
+                            if is_available:
+                                png_path = convert_wmf_to_png(image_bytes, image_path)
+                                if png_path:
+                                    image_name = png_path.name
+                                    image_path = png_path
+                                else:
+                                    logger.warning(f"Skipping WMF image that couldn't be converted: {image_name}")
+                                    continue
+                            else:
+                                logger.warning(f"Skipping WMF image due to missing ImageMagick: {image_name}")
+                                continue
+                        else:
+                            # Save non-WMF image
+                            with open(image_path, 'wb') as f:
+                                f.write(image_bytes)
+                        
                         logger.info(f"Extracted image: {image_path}")
 
                         # Map all possible variations of the image name

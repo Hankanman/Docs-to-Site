@@ -17,6 +17,8 @@ A Python-based tool that converts various document formats into a hosted MkDocs 
   - Data formats: JSON, XML
   - Archives: ZIP
 - Extract and organize images from PowerPoint presentations
+  - Supports all common image formats
+  - Automatically converts WMF images to PNG (requires ImageMagick)
 - Generate MkDocs site configuration with:
   - Automatic navigation structure
   - Material theme with modern features
@@ -24,93 +26,68 @@ A Python-based tool that converts various document formats into a hosted MkDocs 
 - Create organized documentation structure
 - GitHub Pages integration
 
+## Requirements
+
+### Python Dependencies
+- Python 3.9 or higher
+- Dependencies listed in `requirements.txt`
+
+### System Dependencies
+- ImageMagick (required for WMF image conversion)
+  - Ubuntu/Debian: `sudo apt-get install imagemagick libmagickwand-dev`
+  - macOS: `brew install imagemagick`
+  - Windows: Install from [ImageMagick website](https://imagemagick.org/script/download.php) or via Chocolatey: `choco install imagemagick.app`
+
 ## Installation
 
-### From PyPI (not yet available)
-```bash
-pip install docs-to-site
-```
+1. Install system dependencies:
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get update
+   sudo apt-get install -y imagemagick libmagickwand-dev
 
-### From Source
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/Docs-to-Site.git
-cd Docs-to-Site
+   # macOS
+   brew install imagemagick
 
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   # Windows (using Chocolatey)
+   choco install imagemagick.app
+   ```
 
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
-```
-
-### Dependencies Only
-```bash
-# Production dependencies
-pip install -r requirements.txt
-
-# Development dependencies
-pip install -r requirements-dev.txt
-```
+2. Install Python package:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
-Basic conversion:
-```bash
-Docs-to-Site convert /path/to/input/folder /path/to/output/folder
-```
+1. Basic usage:
+   ```bash
+   python -m docs_to_site convert input_folder output_folder
+   ```
 
-With custom MkDocs configuration:
-```bash
-Docs-to-Site convert /path/to/input/folder /path/to/output/folder --config /path/to/mkdocs.yml
-```
+2. With custom MkDocs config:
+   ```bash
+   python -m docs_to_site convert input_folder output_folder --config custom_mkdocs.yml
+   ```
 
-For more detailed options:
-```bash
-Docs-to-Site --help
-```
+3. Using the GUI:
+   ```bash
+   python -m docs_to_site gui
+   ```
 
-### Output Structure
+## Notes
 
-The converter creates the following structure in your output directory:
-```
-output/
-├── docs/
-│   ├── images/
-│   │   └── [document-name]/
-│   │       └── image_1.png
-│   └── converted_doc.md
-└── mkdocs.yml
-```
-
-## Development
-
-1. Install development dependencies:
-```bash
-pip install -e ".[dev]"
-```
-
-2. Run tests:
-```bash
-pytest
-```
-
-3. Run code quality checks:
-```bash
-black .
-isort .
-flake8
-mypy src tests
-```
+- If ImageMagick is not installed, WMF images from PowerPoint files will be skipped
+- The tool will automatically detect ImageMagick availability and provide appropriate warnings
+- For best results with PowerPoint presentations, ensure ImageMagick is properly installed
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
