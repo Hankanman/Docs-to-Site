@@ -38,6 +38,18 @@ def format_markdown(content: str, document: Path, image_map: Dict[str, str] | No
     # Format slide markers
     content = re.sub(r'<!-- Slide number: (\d+) -->', r'\n---\n### Slide \1\n', content)
     
+    # Add proper spacing around headings
+    content = re.sub(r'(#{1,6} .+?)(\n(?!#))', r'\1\n\2', content)
+    
+    # Add proper spacing around images
+    content = re.sub(r'(!\[.*?\]\(.*?\))(\n[^!\n])', r'\1\n\2', content)
+    
+    # Add proper spacing around bullet points
+    content = re.sub(r'(\n[*-] .+?)(\n[^*\n-])', r'\1\n\2', content)
+    
+    # Add proper spacing around sections
+    content = re.sub(r'(\n\n[^#\n-].*?)(\n[^#\n-])', r'\1\n\2', content)
+    
     # Update image paths if we have a mapping
     if image_map:
         # Log all image references in the markdown
@@ -134,6 +146,30 @@ def format_markdown(content: str, document: Path, image_map: Dict[str, str] | No
     # Log any remaining unmatched image references
     remaining_refs = re.findall(r'!\[(.*?)\]\((.*?)\)', content)
     logger.info(f"Remaining image references after processing: {remaining_refs}")
+    
+    # Detect and format URLs that aren't already markdown links
+    # First, exclude URLs that are already part of markdown links or images
+    def is_in_markdown_link(match, text):
+        # Check if the URL is already part of a markdown link
+        start = max(0, match.start() - 50)  # Look at the 50 chars before the match
+        end = min(len(text), match.end() + 50)  # Look at the 50 chars after the match
+        context = text[start:end]
+        
+        # If there's a closing bracket before the URL and an opening bracket after,
+        # it's likely already in a markdown link
+        before = context[:match.start()-start]
+        after = context[match.end()-start:]
+        return '](' in before and ')' in after
+
+    # URL regex pattern
+    url_pattern = r'(?<![\[\(])(https?://[^\s\)\]]+)'
+    
+    # Find all URLs and replace them with markdown links if they're not already links
+    content = re.sub(
+        url_pattern,
+        lambda m: m.group(0) if is_in_markdown_link(m, content) else f'[{m.group(0)}]({m.group(0)})',
+        content
+    )
     
     # Remove extra blank lines
     content = re.sub(r'\n{3,}', r'\n\n', content)
