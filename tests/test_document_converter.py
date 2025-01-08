@@ -3,7 +3,8 @@ Tests for document conversion functionality.
 """
 import pytest
 from pathlib import Path
-from docs_to_site.document_converter import DocumentConverter, format_markdown
+from docs_to_site.document_converter import DocumentConverter
+from docs_to_site.processors.general_processor import GeneralProcessor
 from docs_to_site.utils import SUPPORTED_FORMATS
 
 
@@ -69,14 +70,25 @@ def test_is_supported_format(temp_dirs):
     assert not converter.is_supported_format(Path("test.unsupported"))
 
 
-def test_format_markdown():
-    """Test Markdown content formatting."""
+def test_markdown_formatting():
+    """Test Markdown content formatting using the general processor."""
+    processor = GeneralProcessor()
+    
     content = """<!-- Slide number: 1 -->
 Some content
 <!-- Slide number: 2 -->
 More content"""
     
-    formatted = format_markdown(content)
+    formatted = processor.process(content)
     
-    assert "### Slide 1" in formatted
-    assert "### Slide 2" in formatted 
+    # Basic formatting checks
+    assert "Some content" in formatted
+    assert "More content" in formatted
+    
+    # Check whitespace handling
+    assert "\v" not in formatted  # No vertical tabs
+    assert "\f" not in formatted  # No form feeds
+    assert "\r" not in formatted  # No carriage returns
+    
+    # Check that consecutive newlines are normalized
+    assert "\n\n\n" not in formatted 

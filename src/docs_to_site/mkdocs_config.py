@@ -4,7 +4,7 @@ MkDocs configuration and navigation structure generation.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -88,21 +88,35 @@ class MkDocsConfig:
         # Create a nested dictionary for the navigation
         nav_structure: Dict[str, Any] = {}
         
+        # Group files by common prefixes
+        prefix_groups: Dict[str, List[Tuple[Path, str]]] = {}
         for file_path, title in converted_files.items():
-            current = nav_structure
-            # Handle nested paths
-            parts = list(file_path.parts)
+            # Extract prefix (e.g., "Client" from "Client - Guide")
+            parts = title.split(" - ", 1)
+            prefix = parts[0] if len(parts) > 1 else ""
+            if prefix:
+                if prefix not in prefix_groups:
+                    prefix_groups[prefix] = []
+                prefix_groups[prefix].append((file_path, title))
+            else:
+                # Files without a prefix go directly into nav_structure
+                clean_title = sanitize_title(title)
+                file_path_str = str(file_path).replace('\\', '/')
+                nav_structure[clean_title] = file_path_str
+        
+        # Process grouped files
+        for prefix, files in prefix_groups.items():
+            clean_prefix = sanitize_title(prefix)
+            prefix_nav: Dict[str, Any] = {}
             
-            # Process all parts except the last one (which is the file)
-            for part in parts[:-1]:
-                clean_part = sanitize_title(part)
-                if clean_part not in current:
-                    current[clean_part] = {}
-                current = current[clean_part]
+            for file_path, title in files:
+                # Get the part after the prefix
+                title_parts = title.split(" - ", 1)
+                clean_title = sanitize_title(title_parts[1] if len(title_parts) > 1 else title)
+                file_path_str = str(file_path).replace('\\', '/')
+                prefix_nav[clean_title] = file_path_str
             
-            # Add the file at the end
-            file_path_str = str(file_path).replace('\\', '/')
-            current[title] = file_path_str
+            nav_structure[clean_prefix] = prefix_nav
         
         # Convert the nested dictionary to MkDocs nav format
         def dict_to_nav(d: Dict[str, Any]) -> List[Any]:
@@ -113,9 +127,10 @@ class MkDocsConfig:
                     nav.append({k: v})
                 else:
                     # Handle nested sections
-                    subnav = dict_to_nav(v)
-                    if subnav:  # Only add non-empty sections
-                        nav.append({k: subnav})
+                    if isinstance(v, dict):
+                        subnav = dict_to_nav(v)
+                        if subnav:  # Only add non-empty sections
+                            nav.append({k: subnav})
             return nav
         
         return dict_to_nav(nav_structure)

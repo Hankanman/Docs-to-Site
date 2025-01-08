@@ -4,7 +4,7 @@ Tests for MkDocs configuration generation.
 import pytest
 from pathlib import Path
 import yaml
-from docs_to_site.mkdocs_config import generate_mkdocs_config
+from docs_to_site.mkdocs_config import MkDocsConfig
 
 
 @pytest.fixture
@@ -16,7 +16,7 @@ def temp_dirs(tmp_path):
     return output_dir, docs_dir
 
 
-def test_generate_mkdocs_config(temp_dirs):
+def test_mkdocs_config_generation(temp_dirs):
     """Test MkDocs configuration generation."""
     output_dir, docs_dir = temp_dirs
     
@@ -27,7 +27,8 @@ def test_generate_mkdocs_config(temp_dirs):
         Path("section/doc3.md"): "Section - Document 3",
     }
     
-    generate_mkdocs_config(output_dir, docs_dir, converted_files)
+    config = MkDocsConfig(output_dir, docs_dir)
+    config.generate(converted_files)
     
     # Check if config file was created
     config_path = output_dir / 'mkdocs.yml'
@@ -35,11 +36,11 @@ def test_generate_mkdocs_config(temp_dirs):
     
     # Verify config contents
     with open(config_path) as f:
-        config = yaml.safe_load(f)
+        config_data = yaml.safe_load(f)
     
-    assert config["site_name"] == "Documentation"
-    assert config["theme"]["name"] == "material"
-    assert "nav" in config
+    assert config_data["site_name"] == "Documentation"
+    assert config_data["theme"]["name"] == "material"
+    assert "nav" in config_data
 
 
 @pytest.mark.parametrize("config_content", [
@@ -60,7 +61,8 @@ def test_custom_mkdocs_config(temp_dirs, config_content):
         Path("doc1.md"): "Document 1",
     }
     
-    generate_mkdocs_config(output_dir, docs_dir, converted_files, config_file)
+    config = MkDocsConfig(output_dir, docs_dir, config_file)
+    config.generate(converted_files)
     
     # Verify config was used
     with open(output_dir / 'mkdocs.yml') as f:
@@ -80,13 +82,14 @@ def test_nav_structure_with_special_characters(temp_dirs):
         Path("section/doc3.md"): "Client - Notes [1.2]",
     }
     
-    generate_mkdocs_config(output_dir, docs_dir, converted_files)
+    config = MkDocsConfig(output_dir, docs_dir)
+    config.generate(converted_files)
     
     with open(output_dir / 'mkdocs.yml') as f:
-        config = yaml.safe_load(f)
+        config_data = yaml.safe_load(f)
     
     # Check that navigation was created without special characters
-    nav = config["nav"]
+    nav = config_data["nav"]
     # Find the Client section
     client_section = next(item for item in nav if "Client" in item)
     assert "Client" in client_section
