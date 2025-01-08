@@ -12,21 +12,40 @@ logger = logging.getLogger(__name__)
 # Document formats supported by the converter
 SUPPORTED_FORMATS = {
     # Documents
-    '.pdf', '.doc', '.docx', '.rtf', '.odt', '.txt',
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".rtf",
+    ".odt",
+    ".txt",
     # Presentations
-    '.ppt', '.pptx',
+    ".ppt",
+    ".pptx",
     # Spreadsheets
-    '.xls', '.xlsx', '.csv',
+    ".xls",
+    ".xlsx",
+    ".csv",
     # Images
-    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".webp",
     # Audio
-    '.mp3', '.wav', '.m4a', '.ogg', '.flac',
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".ogg",
+    ".flac",
     # Web
-    '.html', '.htm',
+    ".html",
+    ".htm",
     # Data formats
-    '.json', '.xml',
+    ".json",
+    ".xml",
     # Archives
-    '.zip'
+    ".zip",
 }
 
 

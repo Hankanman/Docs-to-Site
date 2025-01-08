@@ -8,7 +8,8 @@ from typing import Dict, List, Tuple
 
 from markitdown import MarkItDown, UnsupportedFormatException, FileConversionException
 
-from .utils import sanitize_filename, sanitize_title, SUPPORTED_FORMATS, format_markdown
+from .utils import sanitize_filename, sanitize_title, SUPPORTED_FORMATS
+from .processors.factory import ProcessorFactory
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class DocumentConverter:
         self.docs_dir = output_dir / "docs"
         self.images_dir = self.docs_dir / "images"
         self.converter = MarkItDown()
+        self.processor_factory = ProcessorFactory()
         self.converted_files: Dict[Path, str] = {}  # Maps output paths to titles
 
     def is_supported_format(self, file_path: Path) -> bool:
@@ -93,7 +95,7 @@ class DocumentConverter:
             with open(document, "rb") as f:
                 f.read(1)
 
-            # Convert document to Markdown
+            # Convert document to Markdown using MarkItDown
             result = self.converter.convert_local(str(document))
 
             # Get the title and content
@@ -109,8 +111,12 @@ class DocumentConverter:
             markdown_content = f"# {title}\n\n" if title else ""
             markdown_content += content
 
-            # Format the content
-            markdown_content = format_markdown(markdown_content)
+            # Apply post-processing
+            processors = self.processor_factory.get_processors(document)
+            for processor in processors:
+                markdown_content = processor.process(
+                    markdown_content, metadata=getattr(result, "metadata", None)
+                )
 
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(markdown_content)
@@ -120,17 +126,11 @@ class DocumentConverter:
             self.converted_files[relative_output] = title
 
             return output_path
-        except (PermissionError, OSError) as e:
-            logger.error(
-                f"Cannot access file {document}. The file may be open in another program or you may not have permission to access it."
-            )
+
+        except (UnsupportedFormatException, FileConversionException) as e:
+            logger.error(f"Failed to convert {document}: {str(e)}")
             raise
-        except UnsupportedFormatException as e:
-            logger.error(f"Unsupported format for file: {document}")
-            raise
-        except FileConversionException as e:
-            logger.error(f"Error converting {document}: {str(e)}")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error converting {document}: {str(e)}")
-            raise
+
+    def cleanup(self) -> None:
+        """Cleanup resources used by the converter."""
+        self.processor_factory.cleanup()
