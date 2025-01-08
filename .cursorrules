@@ -25,6 +25,8 @@ Project Root/
 3. Convert documents to Markdown using markitdown
 4. Generate MkDocs site configuration
 5. Create organized output structure for GitHub Pages hosting
+6. Ensure that the images are processed correctly and that the markdown is formatted correctly
+7. DO NOT modify markdown files in any way we are creating the site from the markdown files if there is an issue with a markdown output we need to fix it in the python module
 
 ## Best Practices
 1. Python Code Style:
