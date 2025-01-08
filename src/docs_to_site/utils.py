@@ -3,13 +3,31 @@ Common utility functions for document conversion.
 """
 
 import logging
+import re
 from pathlib import Path
 from slugify import slugify
-from typing import Tuple
-from wand.image import Image as WandImage
-from wand.exceptions import WandError
 
 logger = logging.getLogger(__name__)
+
+# Document formats supported by the converter
+SUPPORTED_FORMATS = {
+    # Documents
+    '.pdf', '.doc', '.docx', '.rtf', '.odt', '.txt',
+    # Presentations
+    '.ppt', '.pptx',
+    # Spreadsheets
+    '.xls', '.xlsx', '.csv',
+    # Images
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
+    # Audio
+    '.mp3', '.wav', '.m4a', '.ogg', '.flac',
+    # Web
+    '.html', '.htm',
+    # Data formats
+    '.json', '.xml',
+    # Archives
+    '.zip'
+}
 
 
 def sanitize_filename(filename: str) -> str:
@@ -52,7 +70,7 @@ def sanitize_filename(filename: str) -> str:
 
 def sanitize_title(title: str) -> str:
     """
-    Sanitize a title for use in MkDocs navigation.
+    Sanitize a document title for use in navigation.
 
     Args:
         title: The title to sanitize
@@ -60,6 +78,7 @@ def sanitize_title(title: str) -> str:
     Returns:
         A sanitized title
     """
+    # Remove any file extensions
     # First handle special characters and spacing
     replacements = {
         "–": "-",  # en dash
@@ -87,71 +106,71 @@ def sanitize_title(title: str) -> str:
     return clean_title.strip()
 
 
-# Constants
-SUPPORTED_FORMATS = {
-    # Documents
-    ".pdf",
-    ".doc",
-    ".docx",
-    ".rtf",
-    ".odt",
-    ".txt",
-    # Presentations
-    ".ppt",
-    ".pptx",
-    # Spreadsheets
-    ".xls",
-    ".xlsx",
-    ".csv",
-    # Images
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".bmp",
-    ".webp",
-    # Audio
-    ".mp3",
-    ".wav",
-    ".m4a",
-    ".ogg",
-    ".flac",
-    # Web
-    ".html",
-    ".htm",
-    # Data formats
-    ".json",
-    ".xml",
-    # Archives
-    ".zip",
-}
-
-IMAGE_FORMATS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg"}
-
-
-def normalize_image_name(name: str) -> str:
-    """Normalize image name to handle variations in spacing and extensions."""
-    # Remove extension
-    base = str(Path(name).stem)
-    # Remove spaces, underscores, and dots
-    base = base.replace(" ", "").replace("_", "").replace(".", "")
-    # Convert to lowercase for case-insensitive matching
-    return base.lower()
-
-
-def check_imagemagick() -> Tuple[bool, str]:
+def format_markdown(content: str) -> str:
     """
-    Check if ImageMagick is available in the system.
+    Format the Markdown content for better readability.
+
+    Args:
+        content: Original Markdown content
 
     Returns:
-        Tuple of (is_available: bool, message: str)
+        Formatted Markdown content
     """
-    try:
-        with WandImage() as img:
-            return True, "ImageMagick is available"
-    except WandError as e:
-        if "delegate" in str(e).lower() and "wmf" in str(e).lower():
-            return False, "ImageMagick WMF delegate library is missing"
-        return False, f"ImageMagick is not properly installed: {str(e)}"
-    except Exception as e:
-        return False, f"Failed to check ImageMagick: {str(e)}"
+    # Clean up vertical tabs and other problematic whitespace
+    content = content.replace("\v", " ")  # Replace vertical tabs with newlines
+    content = re.sub(r"[\f\r]", "", content)  # Remove form feeds and carriage returns
+
+    # Fix newlines in image alt text
+    content = re.sub(
+        r"!\[(.*?)\n+(.*?)\]\((.*?)\)",
+        lambda m: f"![{m.group(1)} {m.group(2)}]({m.group(3)})",
+        content,
+    )
+
+    # Ensure tables have newlines after them (only after the last row)
+    content = re.sub(r"(\|[^\n]*\|)\s*\n(?!\|)", r"\1\n\n", content)
+
+    # Format slide markers
+    content = re.sub(r"<!-- Slide number: (\d+) -->", r"\n---\n### Slide \1\n", content)
+
+    # Add proper spacing around headings
+    content = re.sub(r"(#{1,6} .+?)(\n(?!#))", r"\1\n\2", content)
+
+    # Add proper spacing around bullet points
+    content = re.sub(r"(\n[*-] .+?)(\n[^*\n-])", r"\1\n\2", content)
+
+    # Add proper spacing around sections
+    content = re.sub(r"(\n\n[^#\n-].*?)(\n[^#\n-])", r"\1\n\2", content)
+
+    # Detect and format URLs that aren't already markdown links
+    # First, exclude URLs that are already part of markdown links or images
+    def is_in_markdown_link(match, text):
+        # Check if the URL is already part of a markdown link
+        start = max(0, match.start() - 50)  # Look at the 50 chars before the match
+        end = min(len(text), match.end() + 50)  # Look at the 50 chars after the match
+        context = text[start:end]
+
+        # If there's a closing bracket before the URL and an opening bracket after,
+        # it's likely already in a markdown link
+        before = context[: match.start() - start]
+        after = context[match.end() - start :]
+        return "](" in before and ")" in after
+
+    # URL regex pattern
+    url_pattern = r"(?<![\[\(])(https?://[^\s\)\]]+)"
+
+    # Find all URLs and replace them with markdown links if they're not already links
+    content = re.sub(
+        url_pattern,
+        lambda m: (
+            m.group(0)
+            if is_in_markdown_link(m, content)
+            else f"[{m.group(0)}]({m.group(0)})"
+        ),
+        content,
+    )
+
+    # Remove extra blank lines
+    content = re.sub(r"\n{3,}", r"\n\n", content)
+
+    return content

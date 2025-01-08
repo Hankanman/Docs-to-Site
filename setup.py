@@ -15,8 +15,6 @@ setup(
         "mkdocs>=1.5.0",
         "mkdocs-material>=9.4.0",
         "python-slugify>=8.0.0",
-        "python-pptx>=0.6.21",
-        "scour>=0.38.2",
     ],
     entry_points={
         "console_scripts": [

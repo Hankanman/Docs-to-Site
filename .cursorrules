@@ -26,7 +26,7 @@ Project Root/
 4. Generate MkDocs site configuration
 5. Create organized output structure for GitHub Pages hosting
 6. Ensure that the images are processed correctly and that the markdown is formatted correctly
-7. DO NOT modify markdown files in any way we are creating the site from the markdown files if there is an issue with a markdown output we need to fix it in the python module
+7. Ensure that images that are not in this list need to be converted: ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg" we will use ImageMagick to convert these images to the correct format via the wand library
 
 ## Best Practices
 1. Python Code Style:

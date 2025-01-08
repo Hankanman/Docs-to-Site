@@ -76,21 +76,7 @@ Some content
 <!-- Slide number: 2 -->
 More content"""
     
-    formatted = format_markdown(content, Path("test.pptx"))
+    formatted = format_markdown(content)
     
     assert "### Slide 1" in formatted
-    assert "### Slide 2" in formatted
-
-
-def test_format_markdown_with_images():
-    """Test Markdown formatting with image path updates."""
-    content = '![Alt text](Picture1.jpg)\n![Another](image.png)'
-    image_map = {
-        'Picture1.jpg': 'image_1.jpg',
-        'image.png': 'image_2.png'
-    }
-    
-    formatted = format_markdown(content, Path("test.pptx"), image_map)
-    
-    assert 'images/test/image_1.jpg' in formatted
-    assert 'images/test/image_2.png' in formatted 
+    assert "### Slide 2" in formatted 

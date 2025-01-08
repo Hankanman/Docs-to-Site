@@ -8,21 +8,12 @@ A Python-based tool that converts various document formats into a hosted MkDocs 
 ## Features
 
 - Convert various document formats to Markdown:
-  - Documents: PDF, DOC, DOCX, RTF, ODT, TXT
-  - Presentations: PPT, PPTX (with image extraction)
-  - Spreadsheets: XLS, XLSX, CSV
-  - Images: JPG, JPEG, PNG, GIF, BMP, WEBP
-  - Audio: MP3, WAV, M4A, OGG, FLAC
-  - Web: HTML, HTM
-  - Data formats: JSON, XML
-  - Archives: ZIP
-- Extract and organize images from PowerPoint presentations
-  - Supports all common image formats
-  - Automatically converts WMF images to PNG (requires ImageMagick)
+  - Documents: DOCX, DOC, RTF, ODT, TXT
+  - Presentations: PPT, PPTX
+  - Markdown: MD
 - Generate MkDocs site configuration with:
   - Automatic navigation structure
   - Material theme with modern features
-  - Proper image handling and paths
 - Create organized documentation structure
 - GitHub Pages integration
 
@@ -32,28 +23,9 @@ A Python-based tool that converts various document formats into a hosted MkDocs 
 - Python 3.9 or higher
 - Dependencies listed in `requirements.txt`
 
-### System Dependencies
-- ImageMagick (required for WMF image conversion)
-  - Ubuntu/Debian: `sudo apt-get install imagemagick libmagickwand-dev`
-  - macOS: `brew install imagemagick`
-  - Windows: Install from [ImageMagick website](https://imagemagick.org/script/download.php) or via Chocolatey: `choco install imagemagick.app`
-
 ## Installation
 
-1. Install system dependencies:
-   ```bash
-   # Ubuntu/Debian
-   sudo apt-get update
-   sudo apt-get install -y imagemagick libmagickwand-dev
-
-   # macOS
-   brew install imagemagick
-
-   # Windows (using Chocolatey)
-   choco install imagemagick.app
-   ```
-
-2. Install Python package:
+1. Install Python package:
    ```bash
    pip install -r requirements.txt
    ```
@@ -74,12 +46,6 @@ A Python-based tool that converts various document formats into a hosted MkDocs 
    ```bash
    python -m docs_to_site gui
    ```
-
-## Notes
-
-- If ImageMagick is not installed, WMF images from PowerPoint files will be skipped
-- The tool will automatically detect ImageMagick availability and provide appropriate warnings
-- For best results with PowerPoint presentations, ensure ImageMagick is properly installed
 
 ## Contributing
 
